@@ -81,3 +81,108 @@ checker expr = case expr of
     case t1 of
       (t11 `TArrow` t12) -> if t2 == t11 then return t12 else throwError ("argument type mismatch: expected " ++ show t11 ++ ", got " ++ show t2)
       _ -> throwError ("expected a function type, got " ++ show t1)
+
+  -- Regra T-Add: Soma de dois números naturais
+  Add e1 e2 -> do
+    t1 <- checker e1
+    t2 <- checker e2
+    if t1 == TNat && t2 == TNat
+        then return TNat
+        else throwError ("add expects both arguments to be Nat, got " ++ show t1 ++ " and " ++ show t2)
+
+-- Regra T-Inl (usando TSum)
+checker (TmInl t tySum) = do
+    case tySum of
+        TSum t1 t2 -> do
+            tActual <- checker t
+            if tActual == t1
+                then return tySum
+                else throwError ("inl: expected type " ++ show t1 ++ ", got " ++ show tActual)
+        _ -> throwError ("inl: annotation must be a sum type (TSum), got " ++ show tySum)
+
+-- Regra T-Inr (usando TSum)
+checker (TmInr t tySum) = do
+    case tySum of
+        TSum t1 t2 -> do
+            tActual <- checker t
+            if tActual == t2
+                then return tySum
+                else throwError ("inr: expected type " ++ show t2 ++ ", got " ++ show tActual)
+        _ -> throwError ("inr: annotation must be a sum type (TSum), got " ++ show tySum)
+
+-- Regra T-Case (usando TSum)
+checker (TmCase t0 (x1, t1) (x2, t2)) = do
+    t0Type <- checker t0
+    case t0Type of
+        TSum ty1 ty2 -> do
+            env <- get
+            
+            -- Primeiro braço (inl): assume x1 tem tipo ty1
+            put ((x1, ty1) : env)
+            t1Type <- checker t1
+            
+            -- Segundo braço (inr): assume x2 tem tipo ty2
+            put ((x2, ty2) : env)
+            t2Type <- checker t2
+            
+            -- Restaura o ambiente original
+            put env
+            
+            -- Verifica se os dois braços retornam o mesmo tipo
+            if t1Type == t2Type
+                then return t1Type
+                else throwError ("case branches have different types: " ++ show t1Type ++ " vs " ++ show t2Type)
+        _ -> throwError ("case expected sum type (TSum), got " ++ show t0Type)
+
+-- Regra T-Fix
+checker (TmFix t) = do
+    tType <- checker t
+    case tType of
+        TArrow t1 t2 -> 
+            if t1 == t2
+                then return t2
+                else throwError ("fix: expected T->T, got " ++ show tType)
+        _ -> throwError ("fix: expected function type (T->T), got " ++ show tType)
+
+-- Regra T-Nil
+checker (TNil ty) = do
+    return (TList ty)
+
+-- Regra T-Cons
+checker (TCons ty t1 t2) = do
+    t1Type <- checker t1
+    t2Type <- checker t2
+    if t1Type == ty
+        then case t2Type of
+            TList ty2 -> if ty == ty2
+                then return (TList ty)
+                else throwError ("cons: list element type mismatch")
+            _ -> throwError ("cons: second argument must be List, got " ++ show t2Type)
+        else throwError ("cons: first argument expected " ++ show ty ++ ", got " ++ show t1Type)
+
+-- Regra T-IsNil
+checker (TIsNil ty t) = do
+    tType <- checker t
+    case tType of
+        TList ty' -> if ty == ty'
+            then return TBool
+            else throwError ("isnil: type mismatch")
+        _ -> throwError ("isnil: expected List, got " ++ show tType)
+
+-- Regra T-Head
+checker (THead ty t) = do
+    tType <- checker t
+    case tType of
+        TList ty' -> if ty == ty'
+            then return ty
+            else throwError ("head: type mismatch")
+        _ -> throwError ("head: expected List, got " ++ show tType)
+
+-- Regra T-Tail
+checker (TTail ty t) = do
+    tType <- checker t
+    case tType of
+        TList ty' -> if ty == ty'
+            then return (TList ty)
+            else throwError ("tail: type mismatch")
+        _ -> throwError ("tail: expected List, got " ++ show tType)
