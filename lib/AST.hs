@@ -37,7 +37,7 @@ data Type = TBool
           | Type `TArrow` Type
           | TProd Type Type           -- T1 x T2 (produto)
           | TRecord [(Name, Type)]    -- {l1:T1, ...}
-          | TSum Type Type            -- T1 + T2 (SOMA)  ← NOVO!
+          | TSum Type Type            -- T1 + T2 (soma)
           | TVariant [(Name, Type)]   -- <l1:T1, l2:T2, ...>
           | TUnit                     -- Unit type
           | TString                   -- String type

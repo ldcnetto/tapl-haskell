@@ -157,7 +157,7 @@ testInl = TestCase $
     let pa = Record [("firstlast", ETrue), ("addr", ETrue)]
         leftType = TRecord [("firstlast", TBool), ("addr", TBool)]
         rightType = TRecord [("name", TBool), ("email", TBool)]
-        addrTy = TSum leftType rightType   -- ← Usando TSum
+        addrTy = TSum leftType rightType   
         expr = TmInl pa addrTy
     in assertEqual "inl pa as Addr : Addr"
         (Right addrTy)
@@ -169,7 +169,7 @@ testInr = TestCase $
     let va = Record [("name", ETrue), ("email", ETrue)]
         leftType = TRecord [("firstlast", TBool), ("addr", TBool)]
         rightType = TRecord [("name", TBool), ("email", TBool)]
-        addrTy = TSum leftType rightType   -- ← Usando TSum
+        addrTy = TSum leftType rightType   
         expr = TmInr va addrTy
     in assertEqual "inr va as Addr : Addr"
         (Right addrTy)
@@ -224,7 +224,7 @@ testCaseBranchMismatch = TestCase $
 -- Teste: case em uma expressão que não é soma (deve falhar)
 testCaseNotSum :: Test
 testCaseNotSum = TestCase $
-    let notSumExpr = Zero  -- Zero não é um tipo soma!
+    let notSumExpr = Zero  
         caseExpr = TmCase notSumExpr 
                     ("x", Zero)
                     ("y", Zero)
@@ -235,7 +235,7 @@ testCaseNotSum = TestCase $
 -- Teste: fix em uma função simples
 testFixSimple :: Test
 testFixSimple = TestCase $
-    -- fix (λx:Nat. x)  - diverge, mas deve tipar como Nat
+    -- fix (λx:Nat. x)  
     let func = Abs ("x", TNat) (Var "x")
         expr = TmFix func
     in assertEqual "fix (λx:Nat.x) : Nat"
@@ -245,7 +245,6 @@ testFixSimple = TestCase $
 -- Teste: fix em uma função que não é T->T (deve falhar)
 testFixWrongType :: Test
 testFixWrongType = TestCase $
-    -- fix (λx:Bool. x)  - mas esperamos Nat?
     let func = Abs ("x", TBool) (Var "x")
         expr = TmFix func
     in case run expr of
@@ -255,7 +254,6 @@ testFixWrongType = TestCase $
 -- Teste: fix aplicado a uma função que gera iseven (tipagem apenas)
 testFixIseven :: Test
 testFixIseven = TestCase $
-    -- Gerador: λie:Nat->Bool. λn:Nat. if iszero n then true else ...
     let ieType = TNat `TArrow` TBool
         inner = Abs ("n", TNat) 
                     (If (IsZero (Var "n"))
@@ -288,7 +286,7 @@ testCons = TestCase $
 -- Teste: cons com tipo incompatível (deve falhar)
 testConsTypeMismatch :: Test
 testConsTypeMismatch = TestCase $
-    let expr = TCons TNat ETrue (TNil TNat)  -- True não é Nat
+    let expr = TCons TNat ETrue (TNil TNat)
     in case run expr of
         Left _  -> return ()
         Right t -> assertFailure ("expected type error, got " ++ show t)
@@ -333,10 +331,9 @@ testTail = TestCase $
         (Right (TList TNat))
         (run expr)
 
--- Teste: soma de lista (exemplo do slide) - VERSÃO CORRIGIDA
+-- Teste: soma de lista (exemplo do slide) 
 testSumList :: Test
 testSumList = TestCase $
-    -- Função sumList que soma os elementos de uma lista
     let sumListGenerator = 
             Abs ("sum", TList TNat `TArrow` TNat)
                 (Abs ("l", TList TNat)
@@ -345,8 +342,8 @@ testSumList = TestCase $
                         (Add (THead TNat (Var "l"))
                              (App (Var "sum") (TTail TNat (Var "l")))))) 
         sumList = TmFix sumListGenerator
-        lista = TCons TNat (Succ (Succ Zero))  -- 2
-                (TCons TNat (Succ Zero)        -- 1
+        lista = TCons TNat (Succ (Succ Zero))  
+                (TCons TNat (Succ Zero)       
                     (TNil TNat))
         expr = App sumList lista
     in assertEqual "sumList [2,1] : Nat"
