@@ -9,9 +9,15 @@ data Expr = ETrue
           | Succ Expr
           | Pred Expr
           | IsZero Expr
+          | Add Expr Expr
           | Var Name                  -- x               vars in Lambda Calculus
           | Abs (Name, Type) Expr     -- (\x:T . expr)   abstraction in Lambda Calculus
           | App Expr Expr             -- t1 t2           application in Lambda Calculus
+          | Pair Expr Expr            -- {t1, t2}  
+          | Fst Expr                  -- t.1      
+          | Snd Expr                  -- t.2       
+          | Record [(Name, Expr)]     -- {l1=t1, ...} 
+          | Proj Expr Name            -- t.l       
           | TmInl Expr Type           -- inl t as T
           | TmInr Expr Type           -- inr t as T
           | TmCase Expr (Name, Expr) (Name, Expr)        -- case t of inl x -> t1 | inr y -> t2
