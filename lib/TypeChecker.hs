@@ -81,3 +81,29 @@ checker expr = case expr of
     case t1 of
       (t11 `TArrow` t12) -> if t2 == t11 then return t12 else throwError ("argument type mismatch: expected " ++ show t11 ++ ", got " ++ show t2)
       _ -> throwError ("expected a function type, got " ++ show t1)
+.
+  -- NOVO: Regra para Tipos Base (String)
+  -- Uma string literal sempre tem o tipo TString
+  EString _ -> return TString
+
+  -- NOVO: Regra para Unit
+  -- O termo unit sempre tem o tipo TUnit
+  EUnit -> return TUnit
+
+  -- NOVO: Regra para Ascription (t as T)
+  -- O compilador avalia o tipo de 'e'. Se bater com o tipo 't' anotado pelo programador, passa!
+  Ascribe e tAnotado -> do
+    tCalculado <- checker e
+    if tCalculado == tAnotado 
+      then return tAnotado 
+      else throwError ("Erro de Ascription: o termo tem tipo " ++ show tCalculado ++ " mas foi anotado como " ++ show tAnotado)
+
+  -- NOVO: Regra para Let Binding (let x = e1 in e2)
+  -- Exatamente o código do seu Slide 17!
+  Let x e1 e2 -> do
+    t1 <- checker e1       -- 1. Descobre o tipo da variável que estamos criando
+    env <- get             -- 2. Pega o caderno de anotações (ambiente) atual
+    put $ (x, t1) : env    -- 3. Anota a nova variável 'x' e seu tipo no caderno
+    t2 <- checker e2       -- 4. Avalia o resto do código (e2) com o 'x' existindo lá
+    put env                -- 5. Apaga o 'x' restaurando o caderno original
+    return t2              -- 6. Retorna o tipo final do bloco let
