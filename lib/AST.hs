@@ -43,8 +43,6 @@ data Value = VTrue
 data Type = TBool
           | TNat
           | Type `TArrow` Type
-          | TProd Type Type           -- T1 x T2         product type
-          | TRecord [(Name, Type)]    -- {l1:T1, ...}    record type
           | TProd Type Type           -- T1 x T2 (produto)
           | TRecord [(Name, Type)]    -- {l1:T1, ...}
           | TSum Type Type            -- T1 + T2 (soma)
