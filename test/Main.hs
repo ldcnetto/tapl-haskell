@@ -151,6 +151,44 @@ testAppArgMismatch = TestCase $
     Left _  -> return ()
     Right t -> assertFailure ("expected type error, got " ++ show t)
 
+-- Pair
+testPair :: Test
+testPair = TestCase $
+  assertEqual "{true, zero} has type TBool x TNat"
+    (Right (TProd TBool TNat))
+    (run (Pair ETrue Zero))
+
+testFst :: Test
+testFst = TestCase $
+  assertEqual "fst {true, zero} has type TBool"
+    (Right TBool)
+    (run (Fst (Pair ETrue Zero)))
+
+testFstFail :: Test
+testFstFail = TestCase $
+  case run (Fst Zero) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+
+-- Record
+testRecord :: Test
+testRecord = TestCase $
+  assertEqual "{x=zero, y=true} has type {x:TNat, y:TBool}"
+    (Right (TRecord [("x", TNat), ("y", TBool)]))
+    (run (Record [("x", Zero), ("y", ETrue)]))
+
+testProj :: Test
+testProj = TestCase $
+  assertEqual "{x=zero, y=true}.y has type TBool"
+    (Right TBool)
+    (run (Proj (Record [("x", Zero), ("y", ETrue)]) "y"))
+
+testProjFail :: Test
+testProjFail = TestCase $
+  case run (Proj (Record [("x", Zero)]) "y") of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)
+    
 -- Teste: inl de um valor em uma soma
 testInl :: Test
 testInl = TestCase $
@@ -378,6 +416,12 @@ tests = TestList
   , TestLabel "App returns Bool"     testAppReturnsBool
   , TestLabel "App not a function"   testAppNotAFunction
   , TestLabel "App arg mismatch"     testAppArgMismatch
+  , TestLabel "Pair type"            testPair
+  , TestLabel "Fst projection"       testFst
+  , TestLabel "Fst fails on non-pair" testFstFail
+  , TestLabel "Record type"          testRecord
+  , TestLabel "Record projection"    testProj
+  , TestLabel "Record projection fail" testProjFail
   , TestLabel "TmInl"                testInl
   , TestLabel "TmInr"                testInr
   , TestLabel "TmCase inl"           testCaseInl

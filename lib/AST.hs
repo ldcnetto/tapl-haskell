@@ -12,6 +12,11 @@ data Expr = ETrue
           | Var Name                  -- x               vars in Lambda Calculus
           | Abs (Name, Type) Expr     -- (\x:T . expr)   abstraction in Lambda Calculus
           | App Expr Expr             -- t1 t2           application in Lambda Calculus
+          | Pair Expr Expr            -- {t1, t2}        pair creation
+          | Fst Expr                  -- t.1             first projection
+          | Snd Expr                  -- t.2             second projection
+          | Record [(Name, Expr)]     -- {l1=t1, ...}    record creation
+          | Proj Expr Name            -- t.l             record projection
           | TmInl Expr Type           -- inl t as T
           | TmInr Expr Type           -- inr t as T
           | TmCase Expr (Name, Expr) (Name, Expr)        -- case t of inl x -> t1 | inr y -> t2
@@ -28,6 +33,8 @@ data Value = VTrue
            | VZero
            | VSucc Value
            | VAbs (Name, Type) Expr
+           | VPair Value Value
+           | VRecord [(Name, Value)]
            | VNil Type                 -- nil[T] (valor)
            | VCons Type Value Value    -- cons[T] v1 v2 (valor)
      deriving (Eq, Show)
@@ -35,6 +42,8 @@ data Value = VTrue
 data Type = TBool
           | TNat
           | Type `TArrow` Type
+          | TProd Type Type           -- T1 x T2         product type
+          | TRecord [(Name, Type)]    -- {l1:T1, ...}    record type
           | TProd Type Type           -- T1 x T2 (produto)
           | TRecord [(Name, Type)]    -- {l1:T1, ...}
           | TSum Type Type            -- T1 + T2 (soma)

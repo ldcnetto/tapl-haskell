@@ -82,6 +82,45 @@ checker expr = case expr of
       (t11 `TArrow` t12) -> if t2 == t11 then return t12 else throwError ("argument type mismatch: expected " ++ show t11 ++ ", got " ++ show t2)
       _ -> throwError ("expected a function type, got " ++ show t1)
 
+  -- Regra T-Pair: O tipo do par é o produto dos tipos de seus elementos
+  Pair e1 e2 -> do
+    t1 <- checker e1
+    t2 <- checker e2
+    return (TProd t1 t2)
+
+  -- Regra T-Proj1: Extrair o primeiro elemento de um Par
+  Fst e -> do
+    t <- checker e
+    case t of
+      TProd t1 _ -> return t1
+      _ -> throwError ("fst expects a pair (TProd), got " ++ show t)
+
+  -- Regra T-Proj2: Extrair o segundo elemento de um Par
+  Snd e -> do
+    t <- checker e
+    case t of
+      TProd _ t2 -> return t2
+      _ -> throwError ("snd expects a pair (TProd), got " ++ show t)
+
+  -- Regra T-Rcd: O tipo de um Record é a lista associativa dos tipos de seus campos
+  Record fields -> do
+    -- Usamos mapM para aplicar o checker iterando sobre cada (label, expressão)
+    fieldTys <- mapM (\(label, expR) -> do
+                         ty <- checker expR
+                         return (label, ty)
+                     ) fields
+    return (TRecord fieldTys)
+
+  -- Regra T-Proj: Extrair um campo de um Record por nome
+  Proj e label -> do
+    t <- checker e
+    case t of
+      TRecord fieldTys -> 
+        -- Usamos a função 'lookup' nativa do Haskell para buscar o nome do campo
+        case lookup label fieldTys of
+          Just ty -> return ty
+          Nothing -> throwError ("label '" ++ label ++ "' not found in record type " ++ show t)
+      _ -> throwError ("projection expects a record, got " ++ show t)
   -- Regra T-Add: Soma de dois números naturais
   Add e1 e2 -> do
     t1 <- checker e1
