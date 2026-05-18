@@ -245,8 +245,9 @@ testFixSimple = TestCase $
 -- Teste: fix em uma função que não é T->T (deve falhar)
 testFixWrongType :: Test
 testFixWrongType = TestCase $
-    let func = Abs ("x", TBool) (Var "x")
-        expr = TmFix func
+    -- fix (λx:Nat. x) espera Nat, mas True não é função!
+    -- Ou melhor: fix aplicado a um termo que não é função
+    let expr = TmFix ETrue  -- fix true (isso sim é erro!)
     in case run expr of
         Left _  -> return ()
         Right t -> assertFailure ("expected type error, got " ++ show t)
