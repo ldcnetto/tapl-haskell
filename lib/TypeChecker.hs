@@ -45,9 +45,12 @@ type Res a = StateT Env Err a
 
 checker :: Expr -> Res Type
 checker expr = case expr of
+  -- Constantes
   ETrue -> return TBool
   EFalse -> return TBool
+  Zero -> return TNat
 
+  -- If
   If e1 e2 e3 ->
     checker e1 >>= \t1 ->
     checker e2 >>= \t2 ->
@@ -56,71 +59,159 @@ checker expr = case expr of
     then if t2 == t3 then return t2 else throwError ("then/else branches have different types: " ++ show t2 ++ " vs " ++ show t3)
     else throwError ("condition of if must be Bool, got " ++ show t1)
 
-  Zero -> return TNat
+  -- Nat operations
   Succ e -> checker e >>= \t -> if t == TNat then return TNat else throwError ("succ expects Nat, got " ++ show t)
   Pred e -> checker e >>= \t -> if t == TNat then return TNat else throwError ("pred expects Nat, got " ++ show t)
   IsZero e -> checker e >>= \t -> if t == TNat then return TBool else throwError ("isZero expects Nat, got " ++ show t)
 
+  -- Add
+  Add e1 e2 -> do
+    t1 <- checker e1
+    t2 <- checker e2
+    if t1 == TNat && t2 == TNat
+        then return TNat
+        else throwError ("add expects both arguments to be Nat, got " ++ show t1 ++ " and " ++ show t2)
+
+  -- Variables
   Var x -> do
     env <- get
     case lookup x env of
       Nothing -> throwError ("variable not in scope: " ++ x)
       Just t -> return t
 
+  -- Abstraction
   Abs (x, t1) e -> do
-    env <- get             -- obtains the environment from the state
-    put $ (x, t1) : env      -- updates the state with a new environment
-    t2 <- checker e        -- checker for 'e' in the new environment
-    put env                -- restores the environment
+    env <- get
+    put $ (x, t1) : env
+    t2 <- checker e
+    put env
     return $ t1 `TArrow` t2
 
+  -- Application
   App e1 e2 -> do
     t1 <- checker e1
     t2 <- checker e2
-
     case t1 of
       (t11 `TArrow` t12) -> if t2 == t11 then return t12 else throwError ("argument type mismatch: expected " ++ show t11 ++ ", got " ++ show t2)
       _ -> throwError ("expected a function type, got " ++ show t1)
 
-  -- Regra T-Pair: O tipo do par é o produto dos tipos de seus elementos
+  -- Sums (Seção 11.9)
+  TmInl t tySum -> do
+    case tySum of
+      TSum t1 t2 -> do
+        tActual <- checker t
+        if tActual == t1
+            then return tySum
+            else throwError ("inl: expected type " ++ show t1 ++ ", got " ++ show tActual)
+      _ -> throwError ("inl: annotation must be a sum type (TSum), got " ++ show tySum)
+
+  TmInr t tySum -> do
+    case tySum of
+      TSum t1 t2 -> do
+        tActual <- checker t
+        if tActual == t2
+            then return tySum
+            else throwError ("inr: expected type " ++ show t2 ++ ", got " ++ show tActual)
+      _ -> throwError ("inr: annotation must be a sum type (TSum), got " ++ show tySum)
+
+  TmCase t0 (x1, t1) (x2, t2) -> do
+    t0Type <- checker t0
+    case t0Type of
+      TSum ty1 ty2 -> do
+        env <- get
+        put ((x1, ty1) : env)
+        t1Type <- checker t1
+        put ((x2, ty2) : env)
+        t2Type <- checker t2
+        put env
+        if t1Type == t2Type
+            then return t1Type
+            else throwError ("case branches have different types: " ++ show t1Type ++ " vs " ++ show t2Type)
+      _ -> throwError ("case expected sum type (TSum), got " ++ show t0Type)
+
+  -- Recursion (Seção 11.11)
+  TmFix t -> do
+    tType <- checker t
+    case tType of
+      TArrow t1 t2 -> 
+          if t1 == t2
+              then return t2
+              else throwError ("fix: expected T->T, got " ++ show tType)
+      _ -> throwError ("fix: expected function type (T->T), got " ++ show tType)
+
+  -- Lists (Seção 11.12)
+  TNil ty -> return (TList ty)
+
+  TCons ty t1 t2 -> do
+    t1Type <- checker t1
+    t2Type <- checker t2
+    if t1Type == ty
+        then case t2Type of
+            TList ty2 -> if ty == ty2
+                then return (TList ty)
+                else throwError ("cons: list element type mismatch")
+            _ -> throwError ("cons: second argument must be List, got " ++ show t2Type)
+        else throwError ("cons: first argument expected " ++ show ty ++ ", got " ++ show t1Type)
+
+  TIsNil ty t -> do
+    tType <- checker t
+    case tType of
+      TList ty' -> if ty == ty'
+          then return TBool
+          else throwError ("isnil: type mismatch")
+      _ -> throwError ("isnil: expected List, got " ++ show tType)
+
+  THead ty t -> do
+    tType <- checker t
+    case tType of
+      TList ty' -> if ty == ty'
+          then return ty
+          else throwError ("head: type mismatch")
+      _ -> throwError ("head: expected List, got " ++ show tType)
+
+  TTail ty t -> do
+    tType <- checker t
+    case tType of
+      TList ty' -> if ty == ty'
+          then return (TList ty)
+          else throwError ("tail: type mismatch")
+      _ -> throwError ("tail: expected List, got " ++ show tType)
+
+  -- Pairs
   Pair e1 e2 -> do
     t1 <- checker e1
     t2 <- checker e2
     return (TProd t1 t2)
 
-  -- Regra T-Proj1: Extrair o primeiro elemento de um Par
   Fst e -> do
     t <- checker e
     case t of
       TProd t1 _ -> return t1
       _ -> throwError ("fst expects a pair (TProd), got " ++ show t)
 
-  -- Regra T-Proj2: Extrair o segundo elemento de um Par
   Snd e -> do
     t <- checker e
     case t of
       TProd _ t2 -> return t2
       _ -> throwError ("snd expects a pair (TProd), got " ++ show t)
 
-  -- Regra T-Rcd: O tipo de um Record é a lista associativa dos tipos de seus campos
+  -- Records
   Record fields -> do
-    -- Usamos mapM para aplicar o checker iterando sobre cada (label, expressão)
     fieldTys <- mapM (\(label, expR) -> do
                          ty <- checker expR
                          return (label, ty)
                      ) fields
     return (TRecord fieldTys)
 
-  -- Regra T-Proj: Extrair um campo de um Record por nome
   Proj e label -> do
     t <- checker e
     case t of
       TRecord fieldTys -> 
-        -- Usamos a função 'lookup' nativa do Haskell para buscar o nome do campo
         case lookup label fieldTys of
           Just ty -> return ty
           Nothing -> throwError ("label '" ++ label ++ "' not found in record type " ++ show t)
       _ -> throwError ("projection expects a record, got " ++ show t)
+      
   -- Regra T-Add: Soma de dois números naturais
   Add e1 e2 -> do
     t1 <- checker e1
