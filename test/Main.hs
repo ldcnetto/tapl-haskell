@@ -151,6 +151,58 @@ testAppArgMismatch = TestCase $
     Left _  -> return ()
     Right t -> assertFailure ("expected type error, got " ++ show t)
 
+-- Ascription (well-typed)
+testAscribeValid :: Test
+testAscribeValid = TestCase $
+  assertEqual "true as Bool : TBool"
+    (Right TBool)
+    (run (Ascribe ETrue TBool))
+
+-- Ascription (ill-typed)
+testAscribeInvalid :: Test
+testAscribeInvalid = TestCase $
+  case run (Ascribe ETrue TNat) of
+    Left _  -> return ()
+    Right t -> assertFailure ("expected type error, got " ++ show t)    
+
+-- ==========================================
+-- Testes para Extensões (String, Unit, Let)
+-- ==========================================
+
+-- Base Types: String
+testStringLiteral :: Test
+testStringLiteral = TestCase $
+  assertEqual "\"ola\" tem tipo TString"
+    (Right TString)
+    (run (EString "ola"))
+
+-- Unit Type
+testUnitLiteral :: Test
+testUnitLiteral = TestCase $
+  assertEqual "unit tem tipo TUnit"
+    (Right TUnit)
+    (run EUnit)
+
+-- Let Bindings (well-typed)
+testLetValid :: Test
+testLetValid = TestCase $
+  assertEqual "let x = true in x : TBool"
+    (Right TBool)
+    (run (Let "x" ETrue (Var "x")))
+
+testLetString :: Test
+testLetString = TestCase $
+  assertEqual "let x = \"teste\" in x : TString"
+    (Right TString)
+    (run (Let "x" (EString "teste") (Var "x")))
+
+-- Let Bindings (ill-typed)
+-- Tentando usar 'iszero' (que exige Nat) em uma variável que recebeu um Bool
+testLetInvalid :: Test
+testLetInvalid = TestCase $
+  case run (Let "x" ETrue (IsZero (Var "x"))) of
+    Left _  -> return ()
+    Right t -> assertFailure ("esperado erro de tipo, obtido " ++ show t)
 -- Pair
 testPair :: Test
 testPair = TestCase $
@@ -417,6 +469,13 @@ tests = TestList
   , TestLabel "App returns Bool"     testAppReturnsBool
   , TestLabel "App not a function"   testAppNotAFunction
   , TestLabel "App arg mismatch"     testAppArgMismatch
+  , TestLabel "Ascribe valid"        testAscribeValid       -- NOVO TESTE
+  , TestLabel "Ascribe invalid"      testAscribeInvalid     -- NOVO TESTE
+  , TestLabel "String literal"       testStringLiteral
+  , TestLabel "Unit literal"         testUnitLiteral
+  , TestLabel "Let valid"            testLetValid
+  , TestLabel "Let String"           testLetString
+  , TestLabel "Let invalid"          testLetInvalid
   , TestLabel "Pair type"            testPair
   , TestLabel "Fst projection"       testFst
   , TestLabel "Fst fails on non-pair" testFstFail
