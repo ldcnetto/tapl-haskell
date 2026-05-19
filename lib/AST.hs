@@ -36,3 +36,10 @@ data Type = TBool
           | TString                   -- NOVO: Tipo Base String
           | TUnit                     -- NOVO: Tipo Unit
      deriving (Eq, Show)
+
+
+-- A árvore sintática ganha um nó que guarda 
+-- a expressão e o tipo reivindicado pelo programador.
+
+data Expr = ...
+          | Ascribe Expr Type
